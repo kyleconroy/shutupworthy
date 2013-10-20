@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/xml"
+	"encoding/json"
+	"io/ioutil"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -16,33 +16,6 @@ import (
 type Feed struct {
 	XMLName xml.Name `xml:"rss"`
 	Titles  []string `xml:"channel>item>title"`
-}
-
-// Return the current titles to Upworthy blog posts
-func FetchTitles() ([]string, error) {
-	v := Feed{}
-
-	resp, err := http.Get("http://feeds.feedburner.com/upworthy")
-
-	if err != nil {
-		return []string{}, err
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		return []string{}, err
-	}
-
-	defer resp.Body.Close()
-
-	err = xml.Unmarshal([]byte(data), &v)
-
-	if err != nil {
-		return []string{}, err
-	}
-
-	return v.Titles, nil
 }
 
 // Prefix is a Markov chain prefix of one or more words.
@@ -84,6 +57,24 @@ func (c *Chain) Build(line string) {
 	}
 }
 
+func Load() (map[string]string, error) {
+	var archive map[string]string
+
+	blob, err := ioutil.ReadFile("titles.json")
+
+	if err != nil {
+		return map[string]string{}, err 
+	}
+
+	err = json.Unmarshal(blob, &archive)
+
+	if err != nil {
+		return map[string]string{}, err 
+	}
+
+	return archive, nil
+}
+
 // Generate returns a string of at most n words generated from Chain.
 func (c *Chain) Generate(n int) string {
 	p := make(Prefix, c.prefixLen)
@@ -102,13 +93,13 @@ func (c *Chain) Generate(n int) string {
 
 func main() {
 	// Register command-line flags.
-	numWords := flag.Int("words", 20, "maximum number of words to print")
+	numWords := flag.Int("words", 25, "maximum number of words to print")
 	prefixLen := flag.Int("prefix", 2, "prefix length in words")
 
 	flag.Parse()                     // Parse command-line flags.
 	rand.Seed(time.Now().UnixNano()) // Seed the random number generator.
 
-	titles, err := FetchTitles()
+	titles, err := Load()
 
 	if err != nil {
 		log.Fatal(err)
@@ -116,11 +107,17 @@ func main() {
 
 	c := NewChain(*prefixLen) // Initialize a new Chain.
 
-	for _, title := range titles {
+	for title, _ := range titles {
 		c.Build(title)
 	}
 
 	text := c.Generate(*numWords) // Generate text.
-	fmt.Printf("Chain: %v\n", c)
-	fmt.Println(text)             // Write text to standard output.
+
+	_, ok := titles[text]
+
+	fmt.Println(text)
+
+	if !ok {
+		fmt.Println("NEW HEADLINE")
+	} 
 }
