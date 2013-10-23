@@ -4,30 +4,34 @@ import json
 from bs4 import BeautifulSoup
 
 
-def update():
+def update(page):
+    print "http://www.upworthy.com/page/{}".format(page)
+
     titles = json.load(open("titles.json"))
-    resp = requests.get("http://www.upworthy.com/random")
+
+    resp = requests.get("http://www.upworthy.com/page/{}".format(page))
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.content)
     
-    title = soup.find('div', attrs={'id':'pagetitle'})
-    text = title.find('header')
+    shared = soup.find('div', attrs={'id':'recently-shared'})
+    stories = shared.find_all('div', attrs={'class':'nugget-info'})
 
-    if not text.text:
-        return
+    for div in stories:
+        text = div.find('h3')
 
-    titles[text.text] = ""
-    print text.text
+        if not text.text:
+            continue
+
+        titles[text.text.strip()] = ""
+
     print len(titles)
 
     json.dump(titles, open("titles.json", "w"))
 
+page = 1
 
 while True:
-    try:
-        update()
-    except:
-        pass
-
+    update(page)
+    page = page + 1
     time.sleep(1)
