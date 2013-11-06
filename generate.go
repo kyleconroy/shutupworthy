@@ -1,11 +1,11 @@
 package main
 
 import (
-	"encoding/xml"
 	"encoding/json"
-	"io/ioutil"
+	"encoding/xml"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"strings"
@@ -63,13 +63,13 @@ func Load() (map[string]string, error) {
 	blob, err := ioutil.ReadFile("titles.json")
 
 	if err != nil {
-		return map[string]string{}, err 
+		return map[string]string{}, err
 	}
 
 	err = json.Unmarshal(blob, &archive)
 
 	if err != nil {
-		return map[string]string{}, err 
+		return map[string]string{}, err
 	}
 
 	return archive, nil
@@ -111,13 +111,28 @@ func main() {
 		c.Build(title)
 	}
 
-	text := c.Generate(*numWords) // Generate text.
+	headlines := 0
 
-	_, ok := titles[text]
+	for {
+		if headlines > 10 {
+			break
+		}
 
-	fmt.Println(text)
+		text := c.Generate(*numWords) // Generate text.
 
-	if !ok {
-		fmt.Println("NEW HEADLINE")
-	} 
+		_, found := titles[text]
+
+		if found {
+			continue
+		}
+
+		for title := range titles {
+			if strings.Contains(title, text) {
+				continue
+			}
+		}
+
+		fmt.Println(text)
+		headlines++
+	}
 }
